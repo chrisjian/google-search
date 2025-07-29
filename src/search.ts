@@ -1040,6 +1040,7 @@ export async function googleSearch(
 export async function getGoogleSearchPageHtml(
   query: string,
   options: CommandOptions = {},
+  existingBrowser?: Browser,
   saveToFile: boolean = false,
   outputPath?: string
 ): Promise<HtmlResponse> {
@@ -1131,40 +1132,47 @@ export async function getGoogleSearchPageHtml(
   // 定义一个专门的函数来获取HTML
   async function performSearchAndGetHtml(headless: boolean): Promise<HtmlResponse> {
     let browser: Browser;
-    
-    // 初始化浏览器，添加更多参数以避免检测
-    browser = await chromium.launch({
-      headless,
-      timeout: timeout * 2, // 增加浏览器启动超时时间
-      args: [
-        "--disable-blink-features=AutomationControlled",
-        "--disable-features=IsolateOrigins,site-per-process",
-        "--disable-site-isolation-trials",
-        "--disable-web-security",
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-accelerated-2d-canvas",
-        "--no-first-run",
-        "--no-zygote",
-        "--disable-gpu",
-        "--hide-scrollbars",
-        "--mute-audio",
-        "--disable-background-networking",
-        "--disable-background-timer-throttling",
-        "--disable-backgrounding-occluded-windows",
-        "--disable-breakpad",
-        "--disable-component-extensions-with-background-pages",
-        "--disable-extensions",
-        "--disable-features=TranslateUI",
-        "--disable-ipc-flooding-protection",
-        "--disable-renderer-backgrounding",
-        "--enable-features=NetworkService,NetworkServiceInProcess",
-        "--force-color-profile=srgb",
-        "--metrics-recording-only",
-      ],
-      ignoreDefaultArgs: ["--enable-automation"],
-    });
+    let browserWasProvided = false;
+
+    if (existingBrowser) {
+      browser = existingBrowser;
+      browserWasProvided = true;
+      logger.info("使用已存在的浏览器实例获取HTML");
+    } else {
+      // 初始化浏览器，添加更多参数以避免检测
+      browser = await chromium.launch({
+        headless,
+        timeout: timeout * 2, // 增加浏览器启动超时时间
+        args: [
+          "--disable-blink-features=AutomationControlled",
+          "--disable-features=IsolateOrigins,site-per-process",
+          "--disable-site-isolation-trials",
+          "--disable-web-security",
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-accelerated-2d-canvas",
+          "--no-first-run",
+          "--no-zygote",
+          "--disable-gpu",
+          "--hide-scrollbars",
+          "--mute-audio",
+          "--disable-background-networking",
+          "--disable-background-timer-throttling",
+          "--disable-backgrounding-occluded-windows",
+          "--disable-breakpad",
+          "--disable-component-extensions-with-background-pages",
+          "--disable-extensions",
+          "--disable-features=TranslateUI",
+          "--disable-ipc-flooding-protection",
+          "--disable-renderer-backgrounding",
+          "--enable-features=NetworkService,NetworkServiceInProcess",
+          "--force-color-profile=srgb",
+          "--metrics-recording-only",
+        ],
+        ignoreDefaultArgs: ["--enable-automation"],
+      });
+    }
 
     logger.info("浏览器已成功启动!");
 
@@ -1335,7 +1343,9 @@ export async function getGoogleSearchPageHtml(
           // 关闭当前页面和上下文
           await page.close();
           await context.close();
-          await browser.close();
+          if (!browserWasProvided) {
+            await browser.close();
+          }
           
           // 以有头模式重新执行
           return performSearchAndGetHtml(false);
@@ -1410,7 +1420,9 @@ export async function getGoogleSearchPageHtml(
           // 关闭当前页面和上下文
           await page.close();
           await context.close();
-          await browser.close();
+          if (!browserWasProvided) {
+            await browser.close();
+          }
           
           // 以有头模式重新执行
           return performSearchAndGetHtml(false);
@@ -1538,9 +1550,11 @@ export async function getGoogleSearchPageHtml(
         logger.error({ error }, "保存浏览器状态时发生错误");
       }
 
-      // 关闭浏览器
-      logger.info("正在关闭浏览器...");
-      await browser.close();
+      if (!browserWasProvided) {
+        // 关闭浏览器
+        logger.info("正在关闭浏览器...");
+        await browser.close();
+      }
 
       // 返回HTML响应
       return {
@@ -1580,9 +1594,11 @@ export async function getGoogleSearchPageHtml(
         logger.error({ error: stateError }, "保存浏览器状态时发生错误");
       }
 
-      // 关闭浏览器
-      logger.info("正在关闭浏览器...");
-      await browser.close();
+      if (!browserWasProvided) {
+        // 关闭浏览器
+        logger.info("正在关闭浏览器...");
+        await browser.close();
+      }
 
       // 返回错误信息
       throw new Error(`获取Google搜索页面HTML失败: ${error instanceof Error ? error.message : String(error)}`);

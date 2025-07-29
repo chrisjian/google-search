@@ -16,8 +16,8 @@ program
   .description("基于 Playwright 的 Google 搜索 CLI 工具")
   .version(packageJson.version)
   .argument("<query>", "搜索关键词")
-  .option("-l, --limit <number>", "结果数量限制", parseInt, 10)
-  .option("-t, --timeout <number>", "超时时间(毫秒)", parseInt, 30000)
+  .option("-l, --limit <number>", "结果数量限制", (value) => parseInt(value, 10), 10)
+  .option("-t, --timeout <number>", "超时时间(毫秒)", (value) => parseInt(value, 10), 30000)
   .option("--no-headless", "已废弃: 现在总是先尝试无头模式，如果遇到人机验证会自动切换到有头模式")
   .option("--state-file <path>", "浏览器状态文件路径", "./browser-state.json")
   .option("--no-save-state", "不保存浏览器状态")
@@ -31,6 +31,7 @@ program
         const htmlResult = await getGoogleSearchPageHtml(
           query,
           options,
+          undefined, // CLI模式下没有已存在的浏览器实例
           options.saveHtml || false,
           options.htmlOutput
         );
@@ -51,12 +52,12 @@ program
           // 只输出HTML的前500个字符作为预览
           htmlPreview: htmlResult.html.substring(0, 500) + (htmlResult.html.length > 500 ? '...' : '')
         };
-        
+
         console.log(JSON.stringify(outputResult, null, 2));
       } else {
         // 执行常规搜索
         const results = await googleSearch(query, options);
-        
+
         // 输出结果
         console.log(JSON.stringify(results, null, 2));
       }
